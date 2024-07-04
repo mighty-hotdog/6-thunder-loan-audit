@@ -1,0 +1,27 @@
+       8 text files.
+classified 8 files       8 unique files.                              
+       0 files ignored.
+
+github.com/AlDanial/cloc v 1.90  T=0.01 s (1028.3 files/s, 97042.8 lines/s)
+-------------------------------------------------------------------------------------------------
+File                                                          blank        comment           code
+-------------------------------------------------------------------------------------------------
+./src/protocol/ThunderLoan.sol                                   30             87            176
+./src/upgradedProtocol/ThunderLoanUpgraded.sol                   29             87            172
+./src/protocol/AssetToken.sol                                    16             24             65
+./src/protocol/OracleUpgradeable.sol                              7              1             23
+./src/interfaces/IFlashLoanReceiver.sol                           2              5             13
+./src/interfaces/IPoolFactory.sol                                 1              1              4
+./src/interfaces/ITSwapPool.sol                                   1              1              4
+./src/interfaces/IThunderLoan.sol                                 1              1              4
+-------------------------------------------------------------------------------------------------
+SUM:                                                             87            207            461
+-------------------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Solidity                         8             87            207            461
+-------------------------------------------------------------------------------
+SUM:                             8             87            207            461
+-------------------------------------------------------------------------------
