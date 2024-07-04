@@ -21,16 +21,16 @@ build:; forge build
 
 test :; forge test 
 
-snapshot :; forge snapshot
+snapshot :; forge snapshot -o "./artifacts/gas_snapshot/"
 
 format :; forge fmt
 
 anvil :; anvil -m 'test test test test test test test test test test test junk' --steps-tracing --block-time 1
 
-slither :; slither . --config-file slither.config.json --checklist 
+slither :; slither . --config-file slither.config.json --checklist > ./artifacts/slither_report.txt
 
 scope :; tree ./src/ | sed 's/└/#/g; s/──/--/g; s/├/#/g; s/│ /|/g; s/│/|/g'
 
 scopefile :; @tree ./src/ | sed 's/└/#/g' | awk -F '── ' '!/\.sol$$/ { path[int((length($$0) - length($$2))/2)] = $$2; next } { p = "src"; for(i=2; i<=int((length($$0) - length($$2))/2); i++) if (path[i] != "") p = p "/" path[i]; print p "/" $$2; }' > scope.txt
 
-aderyn :; aderyn .
+aderyn :; aderyn . -o "./artifacts/aderyn_report.md"
