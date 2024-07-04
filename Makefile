@@ -21,7 +21,7 @@ build:; forge build
 
 test :; forge test 
 
-snapshot :; forge snapshot -o "./artifacts/gas_snapshot/"
+snapshot :; forge snapshot --snap "./artifacts/.gas-snapshot"
 
 format :; forge fmt
 
