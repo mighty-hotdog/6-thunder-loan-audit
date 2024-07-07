@@ -94,14 +94,16 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
     mapping(IERC20 => AssetToken) public s_tokenToAssetToken;
 
     // The fee in WEI, it should have 18 decimals. Each flash loan takes a flat fee of the token price.
-    uint256 private s_feePrecision;
+    uint256 private s_feePrecision; // #audit should be immutable
     uint256 private s_flashLoanFee; // 0.3% ETH fee
-
+    // #info so a token in the system can be set to not allow flash loan temporarily
     mapping(IERC20 token => bool currentlyFlashLoaning) private s_currentlyFlashLoaning;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
+    // #q what do these terms mean and how do they relate to each other: "token", "assetToken", "underlyingToken"
+    // #answer Liquidity Providers deposit (underlying) tokens into the system which then mints them assetTokens in return as proof of their deposit. These assetTokens also accrue interest over time for the LPs and can be redeemed for their original deposit of underlying tokens.
     event Deposit(address indexed account, IERC20 indexed token, uint256 amount);
     event AllowedTokenSet(IERC20 indexed token, AssetToken indexed asset, bool allowed);
     event Redeemed(
@@ -131,12 +133,16 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
     //////////////////////////////////////////////////////////////*/
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
+        // #audit no initialization of contract, is this contract deployed in uninitialized state?
         _disableInitializers();
     }
 
     /*//////////////////////////////////////////////////////////////
                            EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    // #audit no access control ie: anyone can frontrun the actual owner and call this to take over the contract as an illegitimate owner. Owner can set a malicious contract as tswapAddress to drain all funds.
+    // #audit there is no visible requirement so far that this initialize() function must be called. There is also no check/blockers preventing the contract from being used/accessed by users/externals before it is properly initialized. If this initialization is called after the Thunder Loan contract has been in operation for some time and users have made transactions on it, will all their transactions be voided and their funds lost?
+    // #audit Owner can also set the flashloan fee. Does this cause other issues?
     function initialize(address tswapAddress) external initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
@@ -150,7 +156,10 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         uint256 exchangeRate = assetToken.getExchangeRate();
         uint256 mintAmount = (amount * assetToken.EXCHANGE_RATE_PRECISION()) / exchangeRate;
         emit Deposit(msg.sender, token, amount);
+        // #e system mints assetTokens to the depositor in exchange for his deposit
         assetToken.mint(msg.sender, mintAmount);
+        // #audit for deposit amount < 334, getCalculatedFee() returns zero, which causes updateExchangeRate() to revert
+        // #audit why is flashloan fee being updated here for a deposit and not a flashloan
         uint256 calculatedFee = getCalculatedFee(token, amount);
         assetToken.updateExchangeRate(calculatedFee);
         token.safeTransferFrom(msg.sender, address(assetToken), amount);
@@ -172,6 +181,8 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         if (amountOfAssetToken == type(uint256).max) {
             amountOfAssetToken = assetToken.balanceOf(msg.sender);
         }
+        // #auditcleared user suffers potential loss of underlying tokens he is trying to redeem due to integer math truncation
+        // #answer exchangeRate already has 1e18 precision applied
         uint256 amountUnderlying = (amountOfAssetToken * exchangeRate) / assetToken.EXCHANGE_RATE_PRECISION();
         emit Redeemed(msg.sender, token, amountOfAssetToken, amountUnderlying);
         assetToken.burn(msg.sender, amountOfAssetToken);
@@ -198,7 +209,7 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
         if (receiverAddress.code.length == 0) {
             revert ThunderLoan__CallerIsNotContract();
         }
-
+        // #audit for flashloan amount < 334, getCalculatedFee() returns zero, which causes updateExchangeRate() to revert
         uint256 fee = getCalculatedFee(token, amount);
         // slither-disable-next-line reentrancy-vulnerabilities-2 reentrancy-vulnerabilities-3
         assetToken.updateExchangeRate(fee);
@@ -237,6 +248,7 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
     }
 
     function setAllowedToken(IERC20 token, bool allowed) external onlyOwner returns (AssetToken) {
+        // #audit missing zero check for token
         if (allowed) {
             if (address(s_tokenToAssetToken[token]) != address(0)) {
                 revert ThunderLoan__AlreadyAllowed();
@@ -257,6 +269,9 @@ contract ThunderLoan is Initializable, OwnableUpgradeable, UUPSUpgradeable, Orac
 
     function getCalculatedFee(IERC20 token, uint256 amount) public view returns (uint256 fee) {
         //slither-disable-next-line divide-before-multiply
+        // #qanswered does getPriceInWeth() return a value that has 18 decimals too? Hence the division by s_feePrecision? Similiarly for s_flashloanFee.
+        // #answer Yes.
+        // #audit no oracle checks or protection against corrupted/incorrect price data
         uint256 valueOfBorrowedToken = (amount * getPriceInWeth(address(token))) / s_feePrecision;
         //slither-disable-next-line divide-before-multiply
         fee = (valueOfBorrowedToken * s_flashLoanFee) / s_feePrecision;

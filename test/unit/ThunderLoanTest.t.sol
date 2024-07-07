@@ -87,4 +87,30 @@ contract ThunderLoanTest is BaseTest {
         assertEq(mockFlashLoanReceiver.getBalanceDuring(), amountToBorrow + AMOUNT);
         assertEq(mockFlashLoanReceiver.getBalanceAfter(), AMOUNT - calculatedFee);
     }
+    ////////////////////////////////
+    // audit test functions
+    ////////////////////////////////
+    function testGetPrice() public setAllowedToken {
+        uint256 price = thunderLoan.getPrice(address(tokenA));
+        console.log("price: ", price);
+    }
+
+    function testGetCalculatedFee(uint256 randomAmount) public setAllowedToken {
+        //vm.assume(randomAmount != 0);
+        randomAmount = bound(randomAmount,1,333);
+        uint256 fee = thunderLoan.getCalculatedFee(tokenA, randomAmount);
+        assertNotEq(fee,0);
+    }
+
+    function testUpdateExchangeRate(uint256 randomFee,uint256 randomAmount) public setAllowedToken {
+        AssetToken assetToken = thunderLoan.getAssetFromToken(tokenA);
+        vm.startPrank(address(thunderLoan));
+        vm.assume(randomAmount > 1);
+        randomFee = bound(randomFee,1,randomAmount-1);
+        assetToken.mint(address(thunderLoan),randomAmount);
+        //vm.assume(randomFee < assetToken.totalSupply());
+        vm.expectRevert();
+        assetToken.updateExchangeRate(randomFee);
+        vm.stopPrank();
+    }
 }

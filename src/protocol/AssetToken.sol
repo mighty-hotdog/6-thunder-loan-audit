@@ -60,6 +60,7 @@ contract AssetToken is ERC20 {
         revertIfZeroAddress(thunderLoan)
         revertIfZeroAddress(address(underlying))
     {
+        // #audit probably should do a check here that thunderloan is actually a contract and not a EOA, ie: revert if thunderloan.code.length == 0, and then do a same check for underlying
         i_thunderLoan = thunderLoan;
         i_underlying = underlying;
         s_exchangeRate = STARTING_EXCHANGE_RATE;
@@ -72,7 +73,7 @@ contract AssetToken is ERC20 {
     function burn(address account, uint256 amount) external onlyThunderLoan {
         _burn(account, amount);
     }
-
+    // #followup looking at the allowed tokens list in the doc, USDC which is itself a proxy, and which has the blacklist feature, could potentially be an issue
     function transferUnderlyingTo(address to, uint256 amount) external onlyThunderLoan {
         i_underlying.safeTransfer(to, amount);
     }
@@ -86,6 +87,13 @@ contract AssetToken is ERC20 {
         // newExchangeRate = oldExchangeRate * (totalSupply + fee) / totalSupply
         // newExchangeRate = 1 (4 + 0.5) / 4
         // newExchangeRate = 1.125
+
+        // #q if fee is less than totalSupply(), then the resulting floating point number will have its decimals truncated, hence newExchangeRate remains equal to s_exchangeRate and this function reverts
+        // #answer this is not true
+
+        // #q the doc says assetTokens gain interest for their owners based on how often flashloans are taken out. Nowhere in this contract is there any mention of interest, so it must refer to here where the exchange rate supposedly only goes up with each flashloan taken out.
+
+        // #audit if totalSupply() returns 0, contract breaks. Is there a way to get to this?
         uint256 newExchangeRate = s_exchangeRate * (totalSupply() + fee) / totalSupply();
 
         if (newExchangeRate <= s_exchangeRate) {
